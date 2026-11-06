@@ -19,9 +19,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Instal uv
-        run: |
-          curl -LsSf https://astral.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        uses: astral-sh/setup-uv@v5
       - name: Install Deps
         run: |
           uv sync --extra dev
