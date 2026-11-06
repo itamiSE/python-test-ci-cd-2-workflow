@@ -1,0 +1,69 @@
+name: CI-CD
+on: 
+  push:
+    branches: [main]
+  pull_request: 
+    branches: [main] 
+jobs: 
+  run-tests:
+    runs-on: ubuntu-latest
+    strategy:
+        fail-fast: false
+        matrix: 
+          python-version: ["3.11", "3.12"]
+    steps: 
+      - name: Checkout 
+        uses: actions/checkout@v7
+      - name: Install Python 
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Instal uv
+        run: |
+          curl -LsSf https://astral.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install Deps
+        run: |
+          uv sync --extra dev
+      - name: Run Test
+        run: |
+          uv run pytest tests/
+  build-and-run:
+    needs: run-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Build wheel and source dist
+        run: |
+          uv build
+      - name: Create venv and install wheel
+        run: |
+          uv venv custom_env
+          . custom_env/bin/activate
+          uv pip install dist/*.whl
+      - name: Install Flaskr app
+        run: |
+          . custom_env/bin/activate
+          uv pip install -e examples/tutorial
+      - name: Init Flaskr db
+        run: |
+          . custom_env/bin/activate
+          export FLASK_APP=flaskr
+          flask --app flaskr init-db
+
+      - name: Run Flaskr App
+        run: 
+          . custom_env/bin/activate
+          export FLASK_APP=flaskr
+          flask --app flaskr run --host=0.0.0.0 --port=5000 &
+          sleep 3
+          curl -I http://127.0.0.1:5000
